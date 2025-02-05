@@ -14,6 +14,12 @@ aria2 = aria2p.API(
     )
 )
 
+# Function to generate a progress bar
+def generate_progress_bar(percentage, length=20):
+    completed = int(length * percentage / 100)
+    remaining = length - completed
+    return "█" * completed + "░" * remaining
+
 async def download_video(url, reply_msg, user_mention, user_id):
     try:
         response = requests.get(f"https://pika-terabox-dl.vercel.app/?url={url}")
@@ -35,16 +41,17 @@ async def download_video(url, reply_msg, user_mention, user_id):
             percentage = download.progress
             done = download.completed_length
             total_size = download.total_length
-            speed = download.download_speed
+            speed = download.download_speed / (1024 * 1024)  # Convert to MB/s
             eta = download.eta
-            elapsed_time_seconds = (datetime.now() - start_time).total_seconds()
+            progress_bar = generate_progress_bar(percentage)
 
             progress_text = (
                 f"📥 **Downloading...**\n"
-                f"🎬 {video_title}\n"
+                f"🎬 **File:** {video_title}\n"
                 f"📊 **Progress:** {percentage:.2f}%\n"
+                f"[{progress_bar}] {percentage:.2f}%\n"
                 f"📂 **Size:** {done / (1024 * 1024):.2f}MB / {total_size / (1024 * 1024):.2f}MB\n"
-                f"🚀 **Speed:** {speed / (1024 * 1024):.2f} MB/s | ⏳ **ETA:** {eta}s"
+                f"🚀 **Speed:** {speed:.2f} MB/s | ⏳ **ETA:** {eta}s"
             )
             await reply_msg.edit_text(progress_text)
             await asyncio.sleep(2)
@@ -73,13 +80,18 @@ async def upload_video(client, file_path, video_title, reply_msg, collection_cha
             uploaded = current
             percentage = (current / total) * 100
             elapsed_time_seconds = (datetime.now() - start_time).total_seconds()
+            speed = (uploaded / (1024 * 1024)) / elapsed_time_seconds  # Convert speed to MB/s
+            eta = (total - uploaded) / (uploaded / elapsed_time_seconds) if uploaded > 0 else 0
+            progress_bar = generate_progress_bar(percentage)
 
             if time.time() - last_update_time > 2:
                 progress_text = (
                     f"🚀 **Uploading...**\n"
-                    f"🎬 {video_title}\n"
-                    f"📂 **Uploaded:** {uploaded / (1024 * 1024):.2f}MB / {total / (1024 * 1024):.2f}MB\n"
-                    f"🚀 **Speed:** {uploaded / (1024 * 1024) / elapsed_time_seconds:.2f} MB/s | ⏳ **ETA:** {int((total - uploaded) / (uploaded / elapsed_time_seconds))}s"
+                    f"🎬 **File:** {video_title}\n"
+                    f"📊 **Progress:** {percentage:.2f}%\n"
+                    f"[{progress_bar}] {percentage:.2f}%\n"
+                    f"📂 **Size:** {uploaded / (1024 * 1024):.2f}MB / {total / (1024 * 1024):.2f}MB\n"
+                    f"🚀 **Speed:** {speed:.2f} MB/s | ⏳ **ETA:** {int(eta)}s"
                 )
                 try:
                     await reply_msg.edit_text(progress_text)
@@ -91,7 +103,7 @@ async def upload_video(client, file_path, video_title, reply_msg, collection_cha
             collection_message = await client.send_video(
                 chat_id=collection_channel_id,
                 video=file,
-                caption=f"✨ {video_title}\n👤 ʟᴇᴇᴄʜᴇᴅ ʙʏ : {user_mention}\n📥 ᴜsᴇʀ ʟɪɴᴋ: [{user_mention}](tg://user?id={user_id})\n\nJoin : @PythonBotz",
+                caption=f"✨ {video_title}\n👤 ʟᴇᴇᴄʜᴇᴅ ʙʏ : {user_mention}\n📥 ᴜsᴇʀ ʟɪɴᴋ: [{user_mention}](tg://user?id={user_id})",
                 progress=progress
             )
 
@@ -113,4 +125,4 @@ async def upload_video(client, file_path, video_title, reply_msg, collection_cha
         logging.error(f"Error in upload_video: {e}")
         await reply_msg.edit_text("⚠️ Error uploading the video. Please try again later.")
         return None
-            
+        
